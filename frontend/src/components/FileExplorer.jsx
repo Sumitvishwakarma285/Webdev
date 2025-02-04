@@ -1,5 +1,4 @@
-
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { FolderTree, File, ChevronRight, ChevronDown } from "lucide-react";
 
 const FileNode = ({ item, depth, onFileClick }) => {
@@ -25,11 +24,7 @@ const FileNode = ({ item, depth, onFileClick }) => {
       >
         {item.type === "folder" && (
           <span className="text-gray-400">
-            {isExpanded ? (
-              <ChevronDown className="w-4 h-4" />
-            ) : (
-              <ChevronRight className="w-4 h-4" />
-            )}
+            {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </span>
         )}
         {item.type === "folder" ? (
@@ -39,15 +34,10 @@ const FileNode = ({ item, depth, onFileClick }) => {
         )}
         <span className="text-gray-200">{item.name}</span>
       </div>
-      {item.type === "folder" && isExpanded && item.children && (
+      {item.type === "folder" && isExpanded && item.children.length > 0 && (
         <div className="pl-4 border-l border-gray-700">
-          {item.children.map((child, index) => (
-            <FileNode
-              key={`${child.path}-${index}`}
-              item={child}
-              depth={depth + 1}
-              onFileClick={onFileClick}
-            />
+          {item.children.map((child) => (
+            <FileNode key={child.path} item={child} depth={depth + 1} onFileClick={onFileClick} />
           ))}
         </div>
       )}
@@ -55,12 +45,55 @@ const FileNode = ({ item, depth, onFileClick }) => {
   );
 };
 
-const FileExplorer = ({ files, onFileSelect }) => {
-  const sortedFiles = [...files].sort((a, b) => {
-    if (a.name === "src") return -1;
-    if (b.name === "src") return 1;
-    return 0;
+/**
+ * Convert a flat file structure into a nested file tree.
+ */
+const buildFileTree = (flatFiles) => {
+  const root = [];
+  const pathMap = {};
+
+  flatFiles.forEach((file) => {
+    const parts = file.path.split("/");
+    let currentLevel = root;
+
+    parts.forEach((part, index) => {
+      const fullPath = parts.slice(0, index + 1).join("/");
+      let node = pathMap[fullPath];
+
+      if (!node) {
+        node = {
+          name: part,
+          path: fullPath,
+          type: index === parts.length - 1 ? "file" : "folder",
+          content: index === parts.length - 1 ? file.content || "" : "",
+          children: [],
+        };
+        pathMap[fullPath] = node;
+
+        if (index === 0) {
+          root.push(node);
+        } else {
+          const parentPath = parts.slice(0, index).join("/");
+          if (!pathMap[parentPath]) {
+            pathMap[parentPath] = {
+              name: parts[index - 1],
+              path: parentPath,
+              type: "folder",
+              children: [],
+            };
+            root.push(pathMap[parentPath]);
+          }
+          pathMap[parentPath].children.push(node);
+        }
+      }
+    });
   });
+
+  return root;
+};
+
+const FileExplorer = ({ files, onFileSelect }) => {
+  const structuredFiles = useMemo(() => buildFileTree(files), [files]);
 
   return (
     <div className="bg-gray-900 rounded-lg shadow-lg p-4 h-full overflow-auto">
@@ -69,14 +102,11 @@ const FileExplorer = ({ files, onFileSelect }) => {
         File Explorer
       </h2>
       <div className="space-y-1">
-        {sortedFiles.map((file, index) => (
-          <FileNode
-            key={`${file.path}-${index}`}
-            item={file}
-            depth={0}
-            onFileClick={onFileSelect}
-          />
-        ))}
+        {structuredFiles.length > 0 ? (
+          structuredFiles.map((file) => <FileNode key={file.path} item={file} depth={0} onFileClick={onFileSelect} />)
+        ) : (
+          <p className="text-gray-500 text-sm">No files available</p>
+        )}
       </div>
     </div>
   );

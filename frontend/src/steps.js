@@ -29,8 +29,10 @@ export function parseXml(response) {
         status: 'pending',
     });
 
+
     // Regular expression to find <boltAction> elements
-    const actionRegex = /<boltAction\s+type="([^"]*)"(?:\s+filePath="([^"]*)")?>([\s\S]*?)<\/boltAction>/g;
+   const actionRegex = /<boltAction\s+type="([^"]*)"(?:\s+filePath\s*=\s*"([^"]*)")?>([\s\S]*?)<\/boltAction>/g;
+
 
     let match;
     while ((match = actionRegex.exec(xmlContent)) !== null) {
